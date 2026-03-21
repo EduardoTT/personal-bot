@@ -24,10 +24,9 @@ RUN uv sync --frozen
 COPY . .
 
 # Collect static (if using Django)
-RUN uv run python manage.py collectstatic --noinput
+RUN uv run python manage.py collectstatic --noinput --skip-checks
 
 # Expose port
 EXPOSE 8000
 
-# Run with gunicorn (2 workers, 2 threads)
-CMD ["uv", "run", "gunicorn", "project.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--threads", "2", "--timeout", "60", "--keep-alive", "5"]
+ENTRYPOINT ["sh", "entrypoint.sh"]
