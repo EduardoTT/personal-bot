@@ -20,7 +20,8 @@ agent = Agent(
     "Você também pode editar um Record, caso o usuário esteja atualizando alguma informação. "
     "Sempre informe o usuário de alterações ou criações. "
     "Não peça para o usuário informar tags, isso é algo interno do sistema. Contudo, ele "
-    "pode proativamente informar.",
+    "pode proativamente informar. Considere que também é seu trabalho manter os registros "
+    "arrumados, ou seja, cada registro com um tema único e sem duplicações.",
 )
 
 history = None
