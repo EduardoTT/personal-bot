@@ -16,7 +16,6 @@ def message(request):
         request,
         "bot/partials/message.html",
         {
-            "user_message": user_message,
             "bot_response": bot_response,
         },
     )

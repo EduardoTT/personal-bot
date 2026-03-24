@@ -118,7 +118,7 @@
             hx-post="{% url 'message' %}"
             hx-target="#message-list"
             hx-swap="beforeend"
-            hx-on::after-request="this.reset(); document.getElementById('message-input').focus(); scrollToBottom();"
+            hx-on::before-request="appendUserBubble(); this.reset(); document.getElementById('message-input').focus();"
         >
             {% csrf_token %}
             <textarea
@@ -143,6 +143,18 @@
             const list = document.getElementById("message-list");
             list.scrollTop = list.scrollHeight;
         }
+
+        function appendUserBubble() {
+            const input = document.getElementById("message-input");
+            const text = input.value.trim();
+            if (!text) return;
+            const bubble = document.createElement("div");
+            bubble.className = "bubble user";
+            bubble.textContent = text;
+            document.getElementById("message-list").appendChild(bubble);
+            scrollToBottom();
+        }
+
         document.addEventListener("htmx:afterSwap", scrollToBottom);
     </script>
 </body>
