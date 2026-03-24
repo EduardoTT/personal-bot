@@ -9,8 +9,10 @@ dependencies = [
     "django-filter>=25.2",
     "djangorestframework>=3.17.0",
     "gunicorn>=25.1.0",
+    "ipdb>=0.13.13",
     "markdown>=3.10.2",
     "psycopg>=3.3.3",
+    "pydantic-ai-slim[openai]>=1.70.0",
     "whitenoise>=6.12.0",
 ]
 
