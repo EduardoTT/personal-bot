@@ -99,6 +99,11 @@
             background: #111;
             color: #fff;
             border-bottom-right-radius: 4px;
+            transition: opacity 0.3s;
+        }
+
+        .bubble.user.pending {
+            opacity: 0.4;
         }
 
         .bubble.bot {
@@ -149,13 +154,18 @@
             const text = input.value.trim();
             if (!text) return;
             const bubble = document.createElement("div");
-            bubble.className = "bubble user";
+            bubble.className = "bubble user pending";
             bubble.textContent = text;
             document.getElementById("message-list").appendChild(bubble);
             scrollToBottom();
         }
 
-        document.addEventListener("htmx:afterSwap", scrollToBottom);
+        document.addEventListener("htmx:afterSwap", function() {
+            document.querySelectorAll(".bubble.user.pending").forEach(function(el) {
+                el.classList.remove("pending");
+            });
+            scrollToBottom();
+        });
     </script>
 </body>
 </html>
