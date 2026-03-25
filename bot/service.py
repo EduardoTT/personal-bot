@@ -9,8 +9,11 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from bot.models import Record, Tag
 
 agent = Agent(
-    OpenAIChatModel("gpt-5.2", provider=OpenAIProvider(api_key=settings.OPEN_AI_KEY)),
-    instructions="Você deve buscar informações nos records, chamando as tools. "
+    OpenAIChatModel(
+        "gpt-5-nano", provider=OpenAIProvider(api_key=settings.OPEN_AI_KEY)
+    ),
+    instructions="Você é um agente pessoal, para acesso rápido à informações. "
+    "Você deve buscar informações nos registros (Records), chamando as tools. "
     "Você pode buscar diretamente pelos records. "
     "Caso nenhuma informação seja pertinente, você pode responder com o seu próprio "
     "conhecimento. Ou então dizer que não sabe. "
@@ -22,7 +25,7 @@ agent = Agent(
     "Não peça para o usuário informar tags, isso é algo interno do sistema. Contudo, ele "
     "pode proativamente informar. Considere que também é seu trabalho manter os registros "
     "arrumados, ou seja, cada registro com um tema único e sem duplicações. "
-    "The text returned should be formatted in HTML.",
+    "O texto retornado deve ser no formato HTML.",
 )
 
 history = None
@@ -110,5 +113,5 @@ def _current_time():
 def send_message(text):
     global history
     result = agent.run_sync(text, message_history=history)
-    history = result.all_messages()
+    history = result.all_messages()[-20:]
     return result.output
