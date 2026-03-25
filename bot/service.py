@@ -10,7 +10,7 @@ from bot.models import Record, Tag
 
 agent = Agent(
     OpenAIChatModel(
-        "gpt-5.4-nano", provider=OpenAIProvider(api_key=settings.OPEN_AI_KEY)
+        "gpt-5.4-mini", provider=OpenAIProvider(api_key=settings.OPEN_AI_KEY)
     ),
     instructions="Você é um agente pessoal, para acesso rápido à informações. "
     "Você deve buscar informações nos registros (Records), chamando as tools. "
@@ -113,5 +113,5 @@ def _current_time():
 def send_message(text):
     global history
     result = agent.run_sync(text, message_history=history)
-    history = result.all_messages()[-20:]
+    history = result.all_messages()[:20]
     return result.output
