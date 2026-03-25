@@ -113,5 +113,5 @@ def _current_time():
 def send_message(text):
     global history
     result = agent.run_sync(text, message_history=history)
-    history = result.all_messages()[:20]
+    history = result.all_messages()
     return result.output
