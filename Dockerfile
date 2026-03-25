@@ -18,7 +18,7 @@ RUN pip install uv
 COPY pyproject.toml uv.lock* ./
 
 # Install dependencies
-RUN uv sync --frozen
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen
 
 # Copy app
 COPY . .
