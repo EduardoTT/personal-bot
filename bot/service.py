@@ -54,13 +54,13 @@ def _save_record(tags: list[str], text: str):
 @agent.tool_plain
 def _fetch_all_records():
     """Fetch all existing records"""
-    return list(Record.objects.all().values("id", "text"))
+    return list(Record.objects.all().values())
 
 
 @agent.tool_plain
 def _fetch_all_tags():
     """Fetch all existing tags"""
-    return list(Tag.objects.all().values("id", "name"))
+    return list(Tag.objects.all().values())
 
 
 @agent.tool_plain(docstring_format="google", require_parameter_descriptions=True)
@@ -70,7 +70,7 @@ def _fetch_records_containing_text(text: str):
     Args:
         text: the argument for 'like / contains' search
     """
-    return list(Record.objects.filter(text__icontains=text).values("id", "text"))
+    return list(Record.objects.filter(text__icontains=text).values())
 
 
 @agent.tool_plain(docstring_format="google", require_parameter_descriptions=True)
@@ -80,7 +80,7 @@ def _get_records_by_tag(tags: list[str]):
     Args:
         tags: list of tags
     """
-    return list(Record.objects.filter(tags__name__in=tags).values("id", "text"))
+    return list(Record.objects.filter(tags__name__in=tags).values())
 
 
 @agent.tool_plain(docstring_format="google", require_parameter_descriptions=True)
