@@ -112,6 +112,10 @@
             opacity: 0.4;
         }
 
+        .bubble.user.error {
+            background: #d32f2f;
+        }
+
         .bubble.bot {
             align-self: flex-start;
             background: #ececec;
@@ -138,7 +142,7 @@
                 placeholder="Message"
                 rows="1"
                 autofocus
-                onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); this.form.requestSubmit(); }"
+                onkeydown="if(event.key==='Enter' && !event.shiftKey && !('ontouchstart' in window)){ event.preventDefault(); this.form.requestSubmit(); }"
                 oninput="this.style.height='auto'; this.style.height=this.scrollHeight+'px'; document.getElementById('send-btn').disabled = !this.value.trim();"
             ></textarea>
             <button type="submit" id="send-btn" disabled>
@@ -171,6 +175,14 @@
                 el.classList.remove("pending");
             });
             scrollToBottom();
+        });
+
+        document.addEventListener("htmx:responseError", function() {
+            document.querySelectorAll(".bubble.user.pending").forEach(function(el) {
+                el.classList.remove("pending");
+                el.classList.add("error");
+            });
+            document.getElementById("send-btn").disabled = false;
         });
     </script>
 </body>

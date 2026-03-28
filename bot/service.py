@@ -1,107 +1,37 @@
+import json
+import logging
 import zoneinfo
 from datetime import datetime
 
 from django.conf import settings
 from pydantic_ai import Agent
+from pydantic_ai.messages import ModelRequest, ModelResponse, ToolCallPart
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from bot.models import Record, Tag
+from bot.models import Inteligence
+
+logger = logging.getLogger(__name__)
+
+model = OpenAIChatModel(
+    "gpt-5.4", provider=OpenAIProvider(api_key=settings.OPEN_AI_KEY)
+)
 
 agent = Agent(
-    OpenAIChatModel(
-        "gpt-5.4-mini", provider=OpenAIProvider(api_key=settings.OPEN_AI_KEY)
-    ),
-    instructions="Você é um agente pessoal, para acesso rápido à informações. "
-    "Você deve buscar informações nos registros (Records), chamando as tools. "
-    "Você pode buscar diretamente pelos records. "
-    "Caso nenhuma informação seja pertinente, você pode responder com o seu próprio "
-    "conhecimento. Ou então dizer que não sabe. "
-    "Caso você entenda que o usuário deseja salvar alguma informação, ou que está "
-    "informando algo que queira buscar depois, você deve salvar como um Record. "
-    "Geralmente quando o usuário pede para criar algo, ele também deseja salvar. "
-    "Você também pode editar um Record, caso o usuário esteja atualizando alguma informação. "
-    "Sempre informe o usuário de alterações ou criações. "
-    "Não peça para o usuário informar tags, isso é algo interno do sistema. Contudo, ele "
-    "pode proativamente informar. Considere que também é seu trabalho manter os registros "
-    "arrumados, ou seja, cada registro com um tema único e sem duplicações. "
-    "O texto retornado deve ser no formato HTML.",
+    model,
+    system_prompt="""Você é um agente pessoal para escrita e consulta de informações."
+    Você tem acesso ao modelo:
+    class Inteligence(models.Model):
+        content = models.JSONField()
+        instructions = models.TextField()
+    O campo content é onde tem todos os dados salvos.
+    O campo instructions explica a estrutura do json que está no campo content.
+    Caso o usuário adicione ou remove um tipo de informação, você deve atualizar
+    o campo instructions com a nova estrutura do json, além de alterar o json do campo content.
+    A resposta final deve ser no formato HTML""",
 )
 
 history = None
-
-
-@agent.tool_plain(docstring_format="google", require_parameter_descriptions=True)
-def _save_record(tags: list[str], text: str):
-    """Create a record and add tags to it.
-
-    Args:
-        tags: list of tags to help fetching the most appropriate records later
-        text: the text of the record
-    """
-    existing_tags = Tag.objects.filter(name__in=tags)
-    existing_names = set(existing_tags.values_list("name", flat=True))
-
-    new_tags = [Tag(name=tag) for tag in tags if tag not in existing_names]
-    Tag.objects.bulk_create(new_tags, ignore_conflicts=True)
-
-    record = Record.objects.create(text=text)
-
-    tag_objs = Tag.objects.filter(name__in=tags)
-    record.tags.add(*tag_objs)
-
-
-@agent.tool_plain
-def _fetch_all_records():
-    """Fetch all existing records"""
-    return list(Record.objects.all().values())
-
-
-@agent.tool_plain
-def _fetch_all_tags():
-    """Fetch all existing tags"""
-    return list(Tag.objects.all().values())
-
-
-@agent.tool_plain(docstring_format="google", require_parameter_descriptions=True)
-def _fetch_records_containing_text(text: str):
-    """Fetch records that contains (like) some text
-
-    Args:
-        text: the argument for 'like / contains' search
-    """
-    return list(Record.objects.filter(text__icontains=text).values())
-
-
-@agent.tool_plain(docstring_format="google", require_parameter_descriptions=True)
-def _get_records_by_tag(tags: list[str]):
-    """Fetch all records by its tags
-
-    Args:
-        tags: list of tags
-    """
-    return list(Record.objects.filter(tags__name__in=tags).values())
-
-
-@agent.tool_plain(docstring_format="google", require_parameter_descriptions=True)
-def _update_record(id: int, new_text: str):
-    """Update record with new text
-
-    Args:
-        id: id of record in db
-        new_text: new text to override current text
-    """
-    return Record.objects.filter(id=id).update(text=new_text)
-
-
-@agent.tool_plain(docstring_format="google", require_parameter_descriptions=True)
-def _delete_record(id: int):
-    """Delete record by id
-
-    Args:
-        id: id of the record in db
-    """
-    return Record.objects.filter(id=id).delete()
 
 
 @agent.tool_plain
@@ -110,8 +40,157 @@ def _current_time():
     return datetime.now(tz)
 
 
+@agent.tool_plain(docstring_format="google", require_parameter_descriptions=True)
+def _update_inteligence(instructions: str, content: dict):
+    """Replace the entire inteligence record with new instructions and content. Use _update_content_by_key for partial updates.
+
+    Args:
+        instructions: description of the JSON structure stored in content
+        content: the JSON data to store
+    """
+    obj = Inteligence.objects.first()
+    if obj is None:
+        Inteligence.objects.create(instructions=instructions, content=content)
+    else:
+        obj.instructions = instructions
+        obj.content = content
+        obj.save()
+    return "ok"
+
+
+@agent.tool_plain(docstring_format="google", require_parameter_descriptions=True)
+def _update_content_by_key(
+    key: str, value: dict | list | str | int | float | bool | None
+):
+    """Update a single top-level key in the content JSON without affecting other keys.
+
+    Args:
+        key: the top-level key to create or update
+        value: the value to set for the key
+    """
+    obj = Inteligence.objects.first()
+    if obj is None:
+        Inteligence.objects.create(instructions="", content={key: value})
+    else:
+        if obj.content is None:
+            obj.content = {}
+        obj.content[key] = value
+        obj.save()
+    return "ok"
+
+
+@agent.tool_plain(docstring_format="google", require_parameter_descriptions=True)
+def _delete_content_key(key: str):
+    """Remove a top-level key from the content JSON.
+
+    Args:
+        key: the top-level key to remove
+    """
+    obj = Inteligence.objects.first()
+    if obj is None or obj.content is None:
+        return "key not found"
+    if key not in obj.content:
+        return "key not found"
+    del obj.content[key]
+    obj.save()
+    return "ok"
+
+
+@agent.tool_plain
+def _read_instructions():
+    """Read the instructions that describe the JSON structure stored in content."""
+    obj = Inteligence.objects.first()
+    if obj is None:
+        return None
+    return obj.instructions
+
+
+@agent.tool_plain(docstring_format="google", require_parameter_descriptions=True)
+def _read_content_by_key(key: str):
+    """Read a specific top-level key from the content JSON.
+
+    Args:
+        key: the top-level key to read from the content JSON
+    """
+    obj = Inteligence.objects.first()
+    if obj is None or obj.content is None:
+        return None
+    return obj.content.get(key)
+
+
+@agent.tool_plain
+def _list_content_keys():
+    """List all top-level keys in the content JSON."""
+    obj = Inteligence.objects.first()
+    if obj is None or obj.content is None:
+        return []
+    return list(obj.content.keys())
+
+
+@agent.tool_plain(docstring_format="google", require_parameter_descriptions=True)
+def _search_content(query: str):
+    """Search for a text within the content JSON values. Returns all top-level keys whose serialized values contain the query (case-insensitive).
+
+    Args:
+        query: text to search for within the JSON values
+    """
+    obj = Inteligence.objects.first()
+    if obj is None or obj.content is None:
+        return {}
+    query_lower = query.lower()
+    results = {}
+    for key, value in obj.content.items():
+        serialized = json.dumps(value, ensure_ascii=False).lower()
+        if query_lower in serialized:
+            results[key] = value
+    return results
+
+
+def _trim_history(messages, max_messages=20):
+    if len(messages) <= max_messages:
+        return messages
+    trimmed = messages[-max_messages:]
+    # Garantir que o histórico comece com um ModelRequest (mensagem do usuário),
+    # nunca com um ModelResponse (que pode conter tool_calls órfãos)
+    while trimmed and not isinstance(trimmed[0], ModelRequest):
+        trimmed.pop(0)
+    return trimmed
+
+
+def _log_result(result):
+    tool_calls = []
+    for message in result.new_messages():
+        if isinstance(message, ModelResponse):
+            for part in message.parts:
+                if isinstance(part, ToolCallPart):
+                    tool_calls.append(
+                        f"{part.tool_name}({json.dumps(part.args_as_dict(), ensure_ascii=False)})"
+                    )
+    if tool_calls:
+        logger.info("Tools chamadas: %s", ", ".join(tool_calls))
+
+    usage = result.usage()
+    logger.info(
+        "Tokens — input: %d, output: %d, total: %d",
+        usage.input_tokens,
+        usage.output_tokens,
+        usage.total_tokens,
+    )
+
+
 def send_message(text):
     global history
+
+    if history is None:
+        result = agent.run_sync(
+            "Puxe todos os dados do banco de dados, para você ter esse contexto",
+            message_history=history,
+        )
+        history = result.all_messages()
+        _log_result(result)
+
     result = agent.run_sync(text, message_history=history)
-    history = result.all_messages()
+    history = _trim_history(result.all_messages(), max_messages=20)
+    _log_result(result)
+
     return result.output

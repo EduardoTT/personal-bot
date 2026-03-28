@@ -18,3 +18,8 @@ class Record(models.Model):
 
     def __str__(self):
         return self.text
+
+
+class Inteligence(models.Model):
+    content = models.JSONField()
+    instructions = models.TextField()

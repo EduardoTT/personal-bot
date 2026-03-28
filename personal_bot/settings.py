@@ -136,3 +136,19 @@ CSRF_COOKIE_SECURE = not DEBUG
 SECURE_SSL_REDIRECT = not DEBUG
 
 OPEN_AI_KEY = os.getenv("OPEN_AI_KEY")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "loggers": {
+        "bot": {
+            "handlers": ["console"],
+            "level": "INFO" if DEBUG else "WARNING",
+        },
+    },
+}
