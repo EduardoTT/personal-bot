@@ -140,15 +140,30 @@ OPEN_AI_KEY = os.getenv("OPEN_AI_KEY")
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{asctime} {levelname} {name} {message}",
+            "style": "{",
+        },
+    },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
+            "formatter": "verbose",
+            "level": "INFO" if DEBUG else "WARNING",
+        },
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": BASE_DIR / "logs" / "bot.log",
+            "maxBytes": 5 * 1024 * 1024,
+            "backupCount": 3,
+            "formatter": "verbose",
         },
     },
     "loggers": {
         "bot": {
-            "handlers": ["console"],
-            "level": "INFO" if DEBUG else "WARNING",
+            "handlers": ["console", "file"],
+            "level": "INFO",
         },
     },
 }
