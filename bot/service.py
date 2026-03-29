@@ -5,7 +5,13 @@ from datetime import datetime
 
 from django.conf import settings
 from pydantic_ai import Agent, ModelMessagesTypeAdapter, RunContext
-from pydantic_ai.messages import ModelRequest, ModelResponse, ToolCallPart
+from pydantic_ai.messages import (
+    ModelRequest,
+    ModelResponse,
+    ToolCallPart,
+    ToolReturnPart,
+    UserPromptPart,
+)
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_core import to_jsonable_python
@@ -156,13 +162,20 @@ def _search_content(query: str):
     return results
 
 
+def _has_user_prompt(request: ModelRequest) -> bool:
+    return any(isinstance(part, UserPromptPart) for part in request.parts)
+
+
 def _trim_history(messages, max_messages=20):
     if len(messages) <= max_messages:
         return messages
     trimmed = messages[-max_messages:]
-    # Garantir que o histórico comece com um ModelRequest (mensagem do usuário),
-    # nunca com um ModelResponse (que pode conter tool_calls órfãos)
-    while trimmed and not isinstance(trimmed[0], ModelRequest):
+    # Garantir que o histórico comece com um ModelRequest que tenha uma mensagem
+    # do usuário, não apenas ToolReturnParts órfãos
+    while trimmed and (
+        isinstance(trimmed[0], ModelResponse)
+        or (isinstance(trimmed[0], ModelRequest) and not _has_user_prompt(trimmed[0]))
+    ):
         trimmed.pop(0)
     return trimmed
 
