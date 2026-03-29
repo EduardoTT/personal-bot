@@ -4,14 +4,16 @@ import zoneinfo
 from datetime import datetime
 
 from django.conf import settings
-from pydantic_ai import Agent
+from pydantic_ai import Agent, ModelMessagesTypeAdapter, RunContext
 from pydantic_ai.messages import ModelRequest, ModelResponse, ToolCallPart
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_core import to_jsonable_python
 
-from bot.models import Inteligence
+from bot.models import Inteligence, InteligenceDeserializer
 
 logger = logging.getLogger(__name__)
+
 
 model = OpenAIChatModel(
     "gpt-5.4", provider=OpenAIProvider(api_key=settings.OPEN_AI_KEY)
@@ -19,7 +21,8 @@ model = OpenAIChatModel(
 
 agent = Agent(
     model,
-    system_prompt="""Você é um agente pessoal para escrita e consulta de informações."
+    deps_type=dict,
+    system_prompt="""Você é um agente pessoal para escrita e consulta de informações.
     Você tem acesso ao modelo:
     class Inteligence(models.Model):
         content = models.JSONField()
@@ -31,7 +34,14 @@ agent = Agent(
     A resposta final deve ser no formato HTML""",
 )
 
-history = None
+
+@agent.system_prompt
+def _inteligence_context(ctx: RunContext[dict]) -> str:
+    return (
+        f"## Inteligence atual\n\n"
+        f"**Instructions:**\n{ctx.deps['instructions']}\n\n"
+        f"**Content:**\n{json.dumps(ctx.deps['content'], ensure_ascii=False, indent=2)}"
+    )
 
 
 @agent.tool_plain
@@ -178,19 +188,22 @@ def _log_result(result):
     )
 
 
-def send_message(text):
-    global history
+def _get_deps() -> dict:
+    inteligence = Inteligence.objects.first()
+    if inteligence is None:
+        inteligence = Inteligence(content={}, instructions="")
+    inteligence_data = InteligenceDeserializer.model_validate(inteligence).model_dump()
+    return inteligence_data
 
-    if history is None:
-        result = agent.run_sync(
-            "Puxe todos os dados do banco de dados, para você ter esse contexto",
-            message_history=history,
-        )
-        history = result.all_messages()
-        _log_result(result)
 
-    result = agent.run_sync(text, message_history=history)
-    history = _trim_history(result.all_messages(), max_messages=20)
+def send_message(text, history):
+    try:
+        serialized_history = ModelMessagesTypeAdapter.validate_python(history)
+    except TypeError:
+        serialized_history = []
+    deps = _get_deps()
+    result = agent.run_sync(text, message_history=serialized_history, deps=deps)
+    history = _trim_history(result.all_messages(), max_messages=50)
     _log_result(result)
 
-    return result.output
+    return result.output, to_jsonable_python(history)

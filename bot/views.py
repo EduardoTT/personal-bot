@@ -15,9 +15,11 @@ def chat(request):
 
 @require_http_methods(["POST"])
 def message(request):
+    history = request.session.get("history", [])
     user_message = request.POST.get("message", "").strip()
     try:
-        bot_response = send_message(user_message)
+        bot_response, updated_history = send_message(user_message, history)
+        request.session["history"] = updated_history
     except Exception:
         logger.exception("Erro ao processar mensagem")
         return HttpResponse(status=500)

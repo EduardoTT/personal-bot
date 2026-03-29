@@ -1,4 +1,5 @@
 from django.db import models
+from pydantic import BaseModel, ConfigDict
 
 
 class Tag(models.Model):
@@ -23,3 +24,10 @@ class Record(models.Model):
 class Inteligence(models.Model):
     content = models.JSONField()
     instructions = models.TextField()
+
+
+class InteligenceDeserializer(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    content: dict
+    instructions: str
